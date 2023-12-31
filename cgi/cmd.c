@@ -2263,6 +2263,11 @@ int write_command_to_file(char *cmd) {
 	FILE *fp;
 	struct stat statbuf;
 
+#ifdef CYGWIN
+	struct timeval time_of_day;
+	char command_file_plain[MAX_FILENAME_LENGTH];	
+#endif
+	
 	/*
 	 * Commands are not allowed to have newlines in them, as
 	 * that allows malicious users to hand-craft requests that
@@ -2271,6 +2276,7 @@ int write_command_to_file(char *cmd) {
 	if(!cmd || !*cmd || strchr(cmd, '\n'))
 		return ERROR;
 
+#ifndef CYGWIN
 	/* bail out if the external command file doesn't exist */
 	if(stat(command_file, &statbuf)) {
 
@@ -2288,6 +2294,38 @@ int write_command_to_file(char *cmd) {
 
 	/* open the command for writing (since this is a pipe, it will really be appended) */
 	fp = fopen(command_file, "w");
+			
+#else
+	/* no complete named pipe handling in Cygwin - ref http://cygwin.com/ml/cygwin/2010-08/msg00459.html 
+		.... create one plain file for each command */
+	
+	/* we will produce a 21-char postfix, are we still within limits ? */
+	if((strlen(command_file) + 21) > MAX_FILENAME_LENGTH){
+	
+		if(content_type==WML_CONTENT)
+			printf("<p>Error: Length of external command file path is out of limits!</p>\n");
+		else{
+			printf("<P><DIV CLASS='errorMessage'>Error: Length of external command file path is out of limits!</DIV></P>\n");
+		printf("<P><DIV CLASS='errorDescription'>");
+			printf("This is a Cygwin-specific problem. Try to move external command directory to a location with a shorter path.\n");
+			printf("</DIV></P>\n");
+			}
+
+		return ERROR;
+	        }
+
+	/* Get time of day, lowest resolution is in millisecs on Cygwin, ref ?? */
+	gettimeofday(&time_of_day, NULL);
+	
+	/* create a file name by using time of day in millisecs as postfix precede by a dot, 
+		largest 64-bit number can be represented by 20 decimal digits  */
+	(void) sprintf (command_file_plain, "%s.%020lu", command_file, (long) (time_of_day.tv_sec * 1000 + time_of_day.tv_usec / 1000));
+
+	/* open the command for writing (new file will be created) */
+	fp=fopen(command_file_plain,"w");
+
+#endif
+
 	if(fp == NULL) {
 
 		if(content_type == WML_CONTENT)

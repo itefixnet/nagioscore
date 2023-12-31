@@ -53,6 +53,8 @@ static struct {
 /************* EXTERNAL COMMAND WORKER CONTROLLERS ****************/
 /******************************************************************/
 
+#ifndef CYGWIN
+/* Standard -open_command_file- function */
 
 /* creates external command file as a named pipe (FIFO) and opens it for reading (non-blocked mode) */
 int open_command_file(void)
@@ -101,9 +103,27 @@ int open_command_file(void)
 	command_file_created = TRUE;
 
 	return OK;
-}
+	}
 
+#else
+/* plain-file based open_command_file */
 
+/* Uses one-file-for-each-command approach -- no need for named pipe specific initializations ... */
+int open_command_file(void){
+
+	/* if we're not checking external commands, don't do anything */
+	if(check_external_commands==FALSE)
+		return OK;
+
+	/* set a flag to remember we already created the file */
+	command_file_created=TRUE;
+
+	return OK;
+    }
+#endif
+
+#ifndef CYGWIN
+/* Standard -close_command_file- function */
 /* closes the external command file FIFO and deletes it */
 int close_command_file(void)
 {
@@ -125,6 +145,21 @@ int close_command_file(void)
 	return OK;
 }
 
+#else
+/* plain-file based close_command_file */
+int close_command_file(void){
+ 
+	/* if we're not checking external commands, don't do anything */
+	if(check_external_commands==FALSE)
+		return OK;
+
+	/* reset our flag */
+	command_file_created=FALSE;
+	
+	return OK;
+    }
+ 
+#endif
 
 /* shutdown command file worker thread */
 int shutdown_command_file_worker(void) {
@@ -172,7 +207,8 @@ static int command_input_handler(int sd, int events, void *discard) {
 	return 0;
 	}
 
-
+#ifndef CYGWIN
+/* Standard -command_file_worker function */
 /* main controller of command file helper process */
 static int command_file_worker(int sd) {
 	iocache *ioc;
@@ -233,9 +269,140 @@ static int command_file_worker(int sd) {
 		 */
 		if (ret < 0 && errno != EINTR)
 			return EXIT_FAILURE;
-		} /* while(1) */
-	}
+		}
+	} /* while(1) */
 
+}
+
+#else
+
+/* Plain file based -command_file_worker function */
+/* main controller of command file helper process */
+static int command_file_worker(int sd) {
+	iocache *ioc;
+ 
+	char command_file_path[MAX_FILENAME_LENGTH];
+	char command_file_workpath[MAX_FILENAME_LENGTH];
+	char command_file_name[MAX_FILENAME_LENGTH];
+	char command_file_workname[MAX_FILENAME_LENGTH];
+	char *command_path_end;
+	char *command_files[256]; // should be a parameter here
+	int command_file_count;
+	DIR *command_dir;
+	struct dirent *command_entry;
+	int i;
+		
+	if (open_command_file() == ERROR)
+		return (EXIT_FAILURE);
+
+	ioc = iocache_create(65536);
+	if (!ioc)
+		exit(EXIT_FAILURE);
+
+	/* Get directory part from command_file */
+	strncpy(command_file_path, command_file, MAX_FILENAME_LENGTH);
+	command_path_end = strrchr( (char *) command_file_path, '/');
+	*command_path_end = '\0';
+	
+	/* Create stage directory */
+	(void *) snprintf (command_file_workpath, sizeof command_file_workpath, "%s/work", command_file_path);
+	if ((mkdir(command_file_workpath, S_IRWXU | S_IRWXG) < 0) && errno != EEXIST)
+		return EXIT_FAILURE;
+	
+	while (1) {
+	
+		int ret;
+		char *buf;
+		unsigned long size;
+		
+		/* if our master has gone away, we need to die */
+		if (kill(nagios_pid, 0) < 0 && errno == ESRCH) {
+			return EXIT_SUCCESS;
+		}
+	
+		/* scan commands in the stage directory and create a file list */	
+		if ((command_dir = opendir(command_file_workpath)) == NULL) {
+			write_to_log("command_file_worker(): opendir()",logging_options,NULL);
+			return EXIT_FAILURE; // correct way to handle this exception ?
+		}
+		
+		command_file_count = 0;
+				
+		while ((command_file_count < 256) && (command_entry = readdir(command_dir)) != NULL) {
+		
+			/* skip '.' and '..' */
+			if ((strcmp(command_entry->d_name, ".") == 0) || (strcmp(command_entry->d_name, "..") == 0)) 
+				continue;
+			
+			command_files[command_file_count] = (char *) strdup(command_entry->d_name);				
+			command_file_count++; 
+		}
+		
+		closedir(command_dir);
+		
+		/* Process commands */
+		for (i=0; i<command_file_count; i++) {
+
+			/* form a complete path to the current command file */
+			(void *) snprintf (command_file_name, sizeof command_file_name, "%s/%s", command_file_workpath, command_files[i]);
+			my_free(command_files[i]);
+				
+			/* open file, read it (assuming only one line!) and delete it */
+			command_file_fd = open(command_file_name, O_RDONLY);
+		
+			errno = 0;
+			ret = iocache_read(ioc, command_file_fd);
+			if (ret < 1) {
+				if (errno == EINTR)
+					continue;
+				return EXIT_FAILURE;
+			}
+
+			close(command_file_fd);
+			unlink(command_file_name);
+			
+			size = iocache_available(ioc);
+			buf = iocache_use_size(ioc, size);
+			ret = write(sd, buf, size);
+
+			/*
+			* @todo Add libio to get io_write_all(), which handles
+			* EINTR and EAGAIN properly instead of just exiting.
+			*/
+			if (ret < 0 && errno != EINTR)
+				return EXIT_FAILURE;
+		}
+
+		/* move a bulk of commands to the stage directory */	
+		if ((command_dir = opendir(command_file_path)) == NULL) {
+			write_to_log("command_file_worker(): opendir()",logging_options,NULL);
+			return EXIT_FAILURE; // correct way to handle this exception ?
+		}
+		
+		command_file_count = 0;
+				
+		while ((command_file_count < 256) && (command_entry = readdir(command_dir)) != NULL) {
+		
+			/* skip '.' and '..' */
+			if ((strcmp(command_entry->d_name, ".") == 0) || (strcmp(command_entry->d_name, "..") == 0)) 
+				continue;
+
+			(void *) snprintf (command_file_name, sizeof command_file_name, "%s/%s", command_file_path, command_entry->d_name);
+			(void *) snprintf (command_file_workname, sizeof command_file_workname, "%s/%s", command_file_workpath, command_entry->d_name);
+				
+			rename(command_file_name, command_file_workname);
+			
+			command_file_count++; 
+		}
+		
+		closedir(command_dir);
+
+		/* Directory operations are expensive, wait some time */
+		sleep(1);
+	
+	}
+}
+#endif
 
 int launch_command_file_worker(void) {
 	int ret, sv[2];
