@@ -1662,7 +1662,7 @@ void setup_sighandler(void) {
 	sigaction(SIGHUP, &sig_action, NULL);
 	if(daemon_dumps_core == FALSE && daemon_mode == TRUE)
 		sigaction(SIGSEGV, &sig_action, NULL);
-	sig_action.sa_flags = SA_NOCLDWAIT;
+/*	sig_action.sa_flags = SA_NOCLDWAIT; */
 #else /* HAVE_SIGACTION */
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGQUIT, sighandler);
