@@ -10,9 +10,9 @@ AC_PREFIX_DEFAULT(/usr/local/nagios)
 
 PKG_NAME=nagios
 
-PKG_VERSION="4.5.0"
+PKG_VERSION="4.5.3"
 PKG_HOME_URL="https://www.nagios.org/"
-PKG_REL_DATE="2023-11-14"
+PKG_REL_DATE="2024-06-11"
 
 dnl Figure out how to invoke "install" and what install options to use.
 AC_PROG_INSTALL
@@ -950,9 +950,6 @@ fi
 
 perl subst include/locations.h
 perl subst html/config.inc.php
-perl subst html/js/histogram.js
-perl subst html/js/map.js
-perl subst html/js/trends.js
 dnl perl subst daemon-service
 
 
