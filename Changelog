@@ -2,6 +2,28 @@
 Nagios Core 4 Change Log
 ########################
 
+4.5.7 - 2024-10-24
+------------------
+* Expand the custom variable macros to an empty string, if the custom variable does not exist (Andre Klärner)
+* Fix notification logic to not send a notification if a host and services parents are down (#873) (Dylan Anderson)
+* Update Exfoliation theme (Dylan Anderson)
+
+4.5.6 - 2024-10-08
+------------------
+* Send a recovery notification if the object recovered while flapping (#847) (Dylan Anderson)
+* Fix for separate build directory & a couple small cleanups (Doug Nazar)
+* Update tutorial links in Readme (Igor Udot)
+
+4.5.5 - 2024-09-17
+------------------
+* Update configure scripts using newer versions of autotools (Dylan Anderson)
+* Disable maintainer mode for TAP testing and add Github Actions (Dylan Anderson)
+
+4.5.4 - 2024-08-14
+------------------
+* Fix inconsistent links for 'View {Trends,Alert Histogram} For This {Host,Service}' (Mauricio Faria de Oliveira)
+* Fix broken links from removing AngularJS pages in 4.5.3 (Dylan Anderson)
+
 4.5.3 - 2024-06-11 
 ------------------
 * Update jQuery (#960) (Dylan Anderson)   
