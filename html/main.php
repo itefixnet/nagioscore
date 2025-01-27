@@ -1,12 +1,16 @@
 <?php
 include_once(dirname(__FILE__).'/includes/utils.inc.php');
 
-$this_version = '4.5.7';
+$this_version = '4.5.9';
 $this_year = '2024';
+$theme = $cfg['theme'] ?? 'dark';
+if ($theme != 'dark' && $theme != 'light') {
+	$theme = 'dark';
+}
 ?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 
-<html id="main">
+<html id="main" class="<?= $theme ?>">
 
 <head>
 
@@ -26,7 +30,7 @@ $this_year = '2024';
 						"Click here to watch the entire Nagios Core 4 Tour!</a>";
 	<?php } ?>
 	$(document).ready(function() {
-		var user = "<?php echo htmlspecialchars($_SERVER['REMOTE_USER']); ?>";
+		var user = "<?php echo htmlspecialchars($_SERVER['REMOTE_USER'] ?? ''); ?>";
 
 		<?php if ($cfg["enable_page_tour"]) { ?>
 			vBoxId += ";" + user;
@@ -56,7 +60,7 @@ $this_year = '2024';
 	}
 
 	function setCoreStatusHTML(image, text) {
-		$('#core-status').html('<img src="images/' + image + '.gif" /> ' + text);
+		$('#core-status').html(`<span class='dot-${image}'>●</span>&nbsp&nbsp${text}`);
 	}
 </script>
 
@@ -65,17 +69,12 @@ $this_year = '2024';
 
 <body id="splashpage">
 
-
-<div id="mainbrandsplash">
-	<div><span id="core-status"></span></div>
-</div>
-
-
 <div id="currentversioninfo">
 	<div>
 		<div class="version">Version <b><?php echo $this_version; ?></b></div>
-		<div class="releasedate">October 24, 2024</div>
+		<div class="releasedate">December 19, 2024</div>
 	</div>
+	<div><span id="core-status"></span></div>
 	<a class="checkforupdates" href="https://www.nagios.org/checkforupdates/?version=<?php echo $this_version; ?>&amp;product=nagioscore" target="_blank">Check for updates</a>
 </div>
 
@@ -90,9 +89,7 @@ $this_year = '2024';
 			<div class="submessage">Disabling update checks presents a possible security risk.  Visit <a href="https://www.nagios.org/" target="_blank">nagios.org</a> to check for updates manually or enable update checks in your Nagios config file.</a></div>
 		</div>
 <?php
-	} else if (
-		$updateinfo['update_available'] && $this_version < $updateinfo['update_version']
-	) {
+	} else if ($updateinfo['update_available'] && $this_version < $updateinfo['update_version']) {
 ?>
 		<div class="updateavailable">
 			<div class="updatemessage">A new version of Nagios Core is available!</div>
@@ -123,7 +120,7 @@ $this_year = '2024';
 		Nagios Core is licensed under the GNU General Public License and is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE WARRANTY OF DESIGN, MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.  Nagios, Nagios Core and the Nagios logo are trademarks, servicemarks, registered trademarks or registered servicemarks owned by Nagios Enterprises, LLC.  Use of the Nagios marks is governed by the <A href="https://www.nagios.com/legal/trademarks/">trademark use restrictions</a>.
 	</div>
 	<div class="logos">
-		<a href="https://www.nagios.org/" target="_blank"><img src="images/logos/nagios-n-logo.svg" title="Nagios.org" /></a>
+		<a href="https://www.nagios.org/" target="_blank"><div class="nlogo nagioslogo"></div></a>
 	</div>
 </div>
 
